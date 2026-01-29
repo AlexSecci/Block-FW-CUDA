@@ -3,15 +3,17 @@
 #include <vector>
 #include <random>
 #include <string>
+#include <filesystem>
+using namespace std;
 
-void generate_graph(int n, const std::string& output_file) {
-    std::cout << "Generating " << n << "x" << n << " adjacency matrix..." << std::endl;
+void generate_graph(int n, const string& output_file) {
+    cout << "Generating " << n << "x" << n << " adjacency matrix..." << endl;
 
-    std::vector<float> matrix(static_cast<size_t>(n) * n);
+    vector<float> matrix(static_cast<size_t>(n) * n);
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dist(0.0f, 100.0f);
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_real_distribution<float> dist(0.0f, 100.0f);
 
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
@@ -23,9 +25,12 @@ void generate_graph(int n, const std::string& output_file) {
         }
     }
 
-    std::ofstream outfile(output_file, std::ios::binary);
+    if (!filesystem::exists("data")) {
+        filesystem::create_directory("data");
+    }
+    ofstream outfile(output_file, ios::binary);
     if (!outfile) {
-        std::cerr << "Error opening file: " << output_file << std::endl;
+        cerr << "Error opening file: " << output_file << endl;
         return;
     }
 
@@ -35,23 +40,23 @@ void generate_graph(int n, const std::string& output_file) {
     outfile.write(reinterpret_cast<const char*>(matrix.data()), matrix.size() * sizeof(float));
 
     outfile.close();
-    std::cout << "Saved to " << output_file << std::endl;
+    cout << "Saved to " << output_file << endl;
 }
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::cout << "Usage: " << argv[0] << " <size1> [size2 ...]" << std::endl;
+        cout << "Usage: " << argv[0] << " <size1> [size2 ...]" << endl;
         return 1;
     }
 
     for (int i = 1; i < argc; ++i) {
-        int n = std::stoi(argv[i]);
+        int n = stoi(argv[i]);
         if (n % 32 != 0) {
-            std::cerr << "Error: Size " << n << " is not a multiple of 32." << std::endl;
+            cerr << "Error: Size " << n << " is not a multiple of 32." << endl;
             continue;
         }
         
-        std::string filename = "data/graph_" + std::to_string(n) + ".dat";
+        string filename = "data/graph_" + to_string(n) + ".dat";
         generate_graph(n, filename);
     }
 

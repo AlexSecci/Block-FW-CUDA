@@ -5,8 +5,10 @@
 #include "floyd_warshall_gpu.cuh"
 #include "utils.h"
 
+using namespace std;
+
 int main(int argc, char** argv) {
-    std::cout << "Floyd-Warshall CUDA Project Initialized" << std::endl;
+    cout << "Floyd-Warshall CUDA Project Initialized" << endl;
     
     // TODO: Parse arguments (graph size)
 
