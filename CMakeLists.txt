@@ -6,9 +6,16 @@ set(CMAKE_CXX_STANDARD 20)
 
 include_directories(include)
 
+find_package(CUDAToolkit REQUIRED)
+
+
 file(GLOB_RECURSE SOURCES "src/*.cu" "src/*.cpp")
 
 add_executable(FloydWarshall ${SOURCES})
+target_link_libraries(FloydWarshall PRIVATE CUDA::cudart)
+
+add_executable(DataGenerator tools/data_generator.cpp)
+
 
 # Hardware optimization for RTX 3070 Ti (Ampere, Compute Capability 8.6)
 set(CMAKE_CUDA_ARCHITECTURES 86)

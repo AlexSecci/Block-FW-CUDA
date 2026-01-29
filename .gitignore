@@ -1,0 +1,11 @@
+build/
+.vscode/
+*.exe
+*.o
+*.obj
+*.lib
+*.dll
+*.exp
+*.pdb
+__pycache__/
+IMPLEMENTATION_PLAN.md
