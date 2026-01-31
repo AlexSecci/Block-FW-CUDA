@@ -6,7 +6,9 @@
 #include "floyd_warshall_gpu.cuh"
 #include "utils.h"
 #include <string>
+#include <vector>
 #include <filesystem>
+#include <chrono>
 
 using namespace std;
 
@@ -56,38 +58,67 @@ int main(int argc, char** argv) {
         return 1;
     }
     cout << "Graph size: " << n << "x" << n << endl;
-    
-    vector<float> matrix(static_cast<size_t>(n) * n);
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            float dist;
-            infile.read(reinterpret_cast<char*>(&dist), sizeof(dist));
-            if (!infile) {
-                cerr << "Error occurred while reading graph values" << endl;
-                return 1;
+
+    vector<float> matrixCPU(static_cast<size_t>(n) * n);
+    vector<float> matrixGPU(static_cast<size_t>(n) * n);
+    if (mode == 0 || mode == 2) {
+        for (int i = 0; i < n; ++i) {
+            for (int j = 0; j < n; ++j) {
+                float dist;
+                infile.read(reinterpret_cast<char*>(&dist), sizeof(dist));
+                if (!infile) {
+                    cerr << "Error occurred while reading graph values" << endl;
+                    return 1;
+                }
+                matrixCPU[static_cast<size_t>(i) * n + j] = dist;
             }
-            matrix[static_cast<size_t>(i) * n + j] = dist;
         }
+        infile.close();
+        if (mode == 2){
+            matrixGPU = matrixCPU;
+        }
+    } else {
+        for (int i = 0; i < n; ++i) {
+            for (int j = 0; j < n; ++j) {
+                float dist;
+                infile.read(reinterpret_cast<char*>(&dist), sizeof(dist));
+                if (!infile) {
+                    cerr << "Error occurred while reading graph values" << endl;
+                    return 1;
+                }
+                matrixGPU[static_cast<size_t>(i) * n + j] = dist;
+            }
+        }
+        infile.close();
     }
+    
     cout << "Graph parsed correctly" << endl;
 
+    if (mode == 0 ||  mode == 2) {
+        // TODO: Run CPU version
+        auto t1 = chrono::high_resolution_clock::now();
+        floydWarshallCPU(matrixCPU, n);
+        auto t2 = chrono::high_resolution_clock::now();
+        chrono::duration<double, std::milli> deltaTime = t2 - t1;
+        cout << "Floyd-Warshall CPU execution completed in " << deltaTime.count() << " ms" << endl;
+    }
 
+    if (mode == 1 ||  mode == 2) {
+        // TODO: Run GPU version
 
+    }
+    // TODO: Run GPU version
 
+    if (mode == 2) {
+    // TODO: Compare results
 
+    }
+    
     if (!filesystem::exists(argv[3])) {
         filesystem::create_directory(argv[3]);
     }
 
-    
-    
-    // TODO: initialize graph
-
-    // TODO: Run CPU version
-
-    // TODO: Run GPU version
-
-    // TODO: Compare results
+    // TODO: Output data
 
     return 0;
 }

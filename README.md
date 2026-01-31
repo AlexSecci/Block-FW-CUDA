@@ -1,6 +1,6 @@
 # Accelerated Graph Analytics: Blocked Floyd-Warshall in CUDA
 
-![Language](https://img.shields.io/badge/Language-C++%20%7C%20CUDA-green) ![Platform](https://img.shields.io/badge/Platform-NVIDIA%20GPU-76b900) ![Status](https://img.shields.io/badge/Status-Early%20Development-7e0101)
+![Language](https://img.shields.io/badge/Language-C++%20%7C%20CUDA-green) ![Platform](https://img.shields.io/badge/Platform-NVIDIA%20GPU-76b900) ![Status](https://img.shields.io/badge/Status-Implementing%20GPU%20Variant-7e0101)
 
 ## 🚀 Project Overview
 This project implements a high-performance **All-Pairs Shortest Path (APSP)** solver using the Floyd-Warshall algorithm.
