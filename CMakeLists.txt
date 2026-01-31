@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 4.2)
 project(FloydWarshallCUDA LANGUAGES CXX CUDA)
 
 set(CMAKE_CUDA_STANDARD 20)
