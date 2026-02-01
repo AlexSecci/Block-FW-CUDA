@@ -2,7 +2,8 @@
 #define FLOYD_WARSHALL_GPU_CUH
 
 #include <cuda_runtime.h>
+#include <vector>
 
-void floydWarshallGPU(float* h_matrix, int n);
+void floydWarshallGPU(std::vector<float>& graph, int n);
 
 #endif // FLOYD_WARSHALL_GPU_CUH

@@ -93,7 +93,8 @@ int main(int argc, char** argv) {
     }
     
     cout << "Graph parsed correctly" << endl;
-
+    writeGraphToFile(matrixCPU, string(argv[3]) + "\\InputCPU.txt");
+    writeGraphToFile(matrixCPU, string(argv[3]) + "\\InputGPU.txt");
     if (mode == 0 ||  mode == 2) {
         // TODO: Run CPU version
         auto t1 = chrono::high_resolution_clock::now();
@@ -105,19 +106,20 @@ int main(int argc, char** argv) {
 
     if (mode == 1 ||  mode == 2) {
         // TODO: Run GPU version
+        auto t1 = chrono::high_resolution_clock::now();
+        floydWarshallGPU(matrixGPU, n);
+        auto t2 = chrono::high_resolution_clock::now();
+        chrono::duration<double, std::milli> deltaTime = t2 - t1;
+        cout << "Floyd-Warshall GPU execution completed in " << deltaTime.count() << " ms" << endl;
 
     }
-    // TODO: Run GPU version
 
     if (mode == 2) {
-    // TODO: Compare results
-
-    }
-    
-    if (!filesystem::exists(argv[3])) {
-        filesystem::create_directory(argv[3]);
+        verifyResults(matrixCPU, matrixGPU);
     }
 
+    writeGraphToFile(matrixCPU, string(argv[3]) + "\\OutputCPU.txt");
+    writeGraphToFile(matrixCPU, string(argv[3]) + "\\OutputGPU.txt");
     // TODO: Output data
 
     return 0;
