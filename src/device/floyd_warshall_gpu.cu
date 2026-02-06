@@ -15,12 +15,12 @@ __global__ void floyd_warshall_phase1_kernel(float4* d_matrix, int n, int k) {
     int matrixRow = k * 32 + threadY;
     int matrixColumn = k * 8 + threadX;
     
-    float4 vector = d_matrix[(matrixRow) * 8 + (matrixColumn)];
+    float4 pivotVector = d_matrix[(matrixRow) * 8 + (matrixColumn)];
 
-    pivot[threadY][threadX * 4 + 0] = vector.x;
-    pivot[threadY][threadX * 4 + 1] = vector.y;
-    pivot[threadY][threadX * 4 + 2] = vector.z;
-    pivot[threadY][threadX * 4 + 3] = vector.w;
+    pivot[threadY][threadX * 4 + 0] = pivotVector.x;
+    pivot[threadY][threadX * 4 + 1] = pivotVector.y;
+    pivot[threadY][threadX * 4 + 2] = pivotVector.z;
+    pivot[threadY][threadX * 4 + 3] = pivotVector.w;
 
     __syncthreads();
 
@@ -37,18 +37,100 @@ __global__ void floyd_warshall_phase1_kernel(float4* d_matrix, int n, int k) {
     }
 
     // Write back to Global Memory
-    vector.x = pivot[threadY][threadX * 4 + 0];
-    vector.y = pivot[threadY][threadX * 4 + 1];
-    vector.z = pivot[threadY][threadX * 4 + 2];
-    vector.w = pivot[threadY][threadX * 4 + 3];
+    pivotVector.x = pivot[threadY][threadX * 4 + 0];
+    pivotVector.y = pivot[threadY][threadX * 4 + 1];
+    pivotVector.z = pivot[threadY][threadX * 4 + 2];
+    pivotVector.w = pivot[threadY][threadX * 4 + 3];
 
-    d_matrix[(matrixRow) * 8 + (matrixColumn)] = vector;
+    d_matrix[matrixRow * 8 + matrixColumn] = pivotVector;
 }
 
 __global__ void floyd_warshall_phase2_kernel(float4* d_matrix, int n, int k) {
-    // TODO: Implement CUDA kernel
-    // int i = blockIdx.y * blockDim.y + threadIdx.y;
-    // int j = blockIdx.x * blockDim.x + threadIdx.x;
+    // blockIdx.y == 0 -> Row Block (k, blockId)
+    // blockIdx.y == 1 -> Col Block (blockId, k)
+    int blockId = blockIdx.x;
+    
+    // Skip diagonal
+    if (blockId == k) return;
+
+    int threadX = threadIdx.x;
+    int threadY = threadIdx.y;
+
+    // Shared Memory for Pivot and Self Block
+    __shared__ float pivot[32][33];
+    __shared__ float self[32][33];
+
+    // Determine Coordinates
+    int selfRow, selfColumn;
+    
+    if (blockIdx.y == 0) {
+        // Processing Row Block (k, blockId)
+        selfRow = k * 32 + threadY;
+        selfColumn = blockId * 8 + threadX;
+        
+        // Load Pivot (k, k)
+        float4 pivotVector = d_matrix[(k * 32 + threadY) * 8 + (k * 8 + threadX)];
+        pivot[threadY][threadX * 4 + 0] = pivotVector.x;
+        pivot[threadY][threadX * 4 + 1] = pivotVector.y;
+        pivot[threadY][threadX * 4 + 2] = pivotVector.z;
+        pivot[threadY][threadX * 4 + 3] = pivotVector.w;
+    } else {
+        // Processing Col Block: Row blockId, Col k
+        selfRow = blockId * 32 + threadY;
+        selfColumn = k * 8 + threadX;
+
+        // Load Pivot (k, k)
+        float4 pivotVector = d_matrix[(k * 32 + threadY) * 8 + (k * 8 + threadX)];
+        pivot[threadY][threadX * 4 + 0] = pivotVector.x;
+        pivot[threadY][threadX * 4 + 1] = pivotVector.y;
+        pivot[threadY][threadX * 4 + 2] = pivotVector.z;
+        pivot[threadY][threadX * 4 + 3] = pivotVector.w;
+    }
+
+    // Load Self
+    float4 selfVector = d_matrix[selfRow * 8 + selfColumn];
+    self[threadY][threadX * 4 + 0] = selfVector.x;
+    self[threadY][threadX * 4 + 1] = selfVector.y;
+    self[threadY][threadX * 4 + 2] = selfVector.z;
+    self[threadY][threadX * 4 + 3] = selfVector.w;
+
+    __syncthreads();
+
+    // Compute
+    #pragma unroll
+    for (int i = 0; i < 32; ++i) {
+        // Row Block (k, i): self[threadY][threadX] = min(self, pivot[threadY][i] + self[i][threadX])
+        // Col Block (i, k): self[threadY][threadX] = min(self, self[threadY][i] + pivot[i][threadX])
+        float lelfValue, rightValue0, rightValue1, rightValue2, rightValue3;
+
+        if (blockIdx.y == 0) { // Row Strip
+            // For Row strip, pivot is the left operand, self is right
+            lelfValue = pivot[threadY][i];
+            rightValue0 = self[i][threadX * 4 + 0];
+            rightValue1 = self[i][threadX * 4 + 1];
+            rightValue2 = self[i][threadX * 4 + 2];
+            rightValue3 = self[i][threadX * 4 + 3];
+        } else { // Col Strip
+             // For Col strip, it's the opposite: self is the left operand, pivot is right
+            lelfValue = self[threadY][i];
+            rightValue0 = pivot[i][threadX * 4 + 0];
+            rightValue1 = pivot[i][threadX * 4 + 1];
+            rightValue2 = pivot[i][threadX * 4 + 2];
+            rightValue3 = pivot[i][threadX * 4 + 3];
+        }
+
+        self[threadY][threadX * 4 + 0] = fminf(self[threadY][threadX * 4 + 0], lelfValue + rightValue0);
+        self[threadY][threadX * 4 + 1] = fminf(self[threadY][threadX * 4 + 1], lelfValue + rightValue1);
+        self[threadY][threadX * 4 + 2] = fminf(self[threadY][threadX * 4 + 2], lelfValue + rightValue2);
+        self[threadY][threadX * 4 + 3] = fminf(self[threadY][threadX * 4 + 3], lelfValue + rightValue3);
+        
+        __syncthreads(); 
+    }
+
+    // Write back Self
+    selfVector.x = self[threadY][threadX * 4 + 0]; selfVector.y = self[threadY][threadX * 4 + 1];
+    selfVector.z = self[threadY][threadX * 4 + 2]; selfVector.w = self[threadY][threadX * 4 + 3];
+    d_matrix[selfRow * 8 + selfColumn] = selfVector;
 }
 
 __global__ void floyd_warshall_phase3_kernel(float4* d_matrix, int n, int k) {
