@@ -6,4 +6,6 @@
 
 void floydWarshallGPU(std::vector<float>& graph, int n);
 
+void floydWarshallGPUNaive(std::vector<float>& graph, int n);
+
 #endif // FLOYD_WARSHALL_GPU_CUH
