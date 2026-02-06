@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
     }
 
     writeGraphToFile(matrixCPU, string(argv[3]) + "\\OutputCPU.txt");
-    writeGraphToFile(matrixCPU, string(argv[3]) + "\\OutputGPU.txt");
+    writeGraphToFile(matrixGPU, string(argv[3]) + "\\OutputGPU.txt");
     // TODO: Output data
 
     return 0;

@@ -4,7 +4,7 @@
 
 using namespace std;
 
-__global__ void floyd_warshall_phase1_kernel(float4* d_matrix, int n, int k) {
+__global__ void floyd_warshall_phase1_kernel(float4* d_matrix, int numVectors, int k) {
     // Shared memory for the single diagonal block padded to avoid warps accessing the same memory block
     __shared__ float pivot[32][33];
 
@@ -15,7 +15,7 @@ __global__ void floyd_warshall_phase1_kernel(float4* d_matrix, int n, int k) {
     int matrixRow = k * 32 + threadY;
     int matrixColumn = k * 8 + threadX;
     
-    float4 pivotVector = d_matrix[(matrixRow) * 8 + (matrixColumn)];
+    float4 pivotVector = d_matrix[(matrixRow) * numVectors + (matrixColumn)];
 
     pivot[threadY][threadX * 4 + 0] = pivotVector.x;
     pivot[threadY][threadX * 4 + 1] = pivotVector.y;
@@ -42,10 +42,10 @@ __global__ void floyd_warshall_phase1_kernel(float4* d_matrix, int n, int k) {
     pivotVector.z = pivot[threadY][threadX * 4 + 2];
     pivotVector.w = pivot[threadY][threadX * 4 + 3];
 
-    d_matrix[matrixRow * 8 + matrixColumn] = pivotVector;
+    d_matrix[matrixRow * numVectors + matrixColumn] = pivotVector;
 }
 
-__global__ void floyd_warshall_phase2_kernel(float4* d_matrix, int n, int k) {
+__global__ void floyd_warshall_phase2_kernel(float4* d_matrix, int numVectors, int k) {
     // blockIdx.y == 0 -> Row Block (k, blockId)
     // blockIdx.y == 1 -> Col Block (blockId, k)
     int blockId = blockIdx.x;
@@ -69,7 +69,7 @@ __global__ void floyd_warshall_phase2_kernel(float4* d_matrix, int n, int k) {
         selfColumn = blockId * 8 + threadX;
         
         // Load Pivot (k, k)
-        float4 pivotVector = d_matrix[(k * 32 + threadY) * 8 + (k * 8 + threadX)];
+        float4 pivotVector = d_matrix[(k * 32 + threadY) * numVectors + (k * 8 + threadX)];
         pivot[threadY][threadX * 4 + 0] = pivotVector.x;
         pivot[threadY][threadX * 4 + 1] = pivotVector.y;
         pivot[threadY][threadX * 4 + 2] = pivotVector.z;
@@ -80,7 +80,7 @@ __global__ void floyd_warshall_phase2_kernel(float4* d_matrix, int n, int k) {
         selfColumn = k * 8 + threadX;
 
         // Load Pivot (k, k)
-        float4 pivotVector = d_matrix[(k * 32 + threadY) * 8 + (k * 8 + threadX)];
+        float4 pivotVector = d_matrix[(k * 32 + threadY) * numVectors + (k * 8 + threadX)];
         pivot[threadY][threadX * 4 + 0] = pivotVector.x;
         pivot[threadY][threadX * 4 + 1] = pivotVector.y;
         pivot[threadY][threadX * 4 + 2] = pivotVector.z;
@@ -88,7 +88,7 @@ __global__ void floyd_warshall_phase2_kernel(float4* d_matrix, int n, int k) {
     }
 
     // Load Self
-    float4 selfVector = d_matrix[selfRow * 8 + selfColumn];
+    float4 selfVector = d_matrix[selfRow * numVectors + selfColumn];
     self[threadY][threadX * 4 + 0] = selfVector.x;
     self[threadY][threadX * 4 + 1] = selfVector.y;
     self[threadY][threadX * 4 + 2] = selfVector.z;
@@ -128,15 +128,68 @@ __global__ void floyd_warshall_phase2_kernel(float4* d_matrix, int n, int k) {
     }
 
     // Write back Self
-    selfVector.x = self[threadY][threadX * 4 + 0]; selfVector.y = self[threadY][threadX * 4 + 1];
-    selfVector.z = self[threadY][threadX * 4 + 2]; selfVector.w = self[threadY][threadX * 4 + 3];
-    d_matrix[selfRow * 8 + selfColumn] = selfVector;
+    selfVector.x = self[threadY][threadX * 4 + 0];
+    selfVector.y = self[threadY][threadX * 4 + 1];
+    selfVector.z = self[threadY][threadX * 4 + 2];
+    selfVector.w = self[threadY][threadX * 4 + 3];
+    d_matrix[selfRow * numVectors + selfColumn] = selfVector;
 }
 
-__global__ void floyd_warshall_phase3_kernel(float4* d_matrix, int n, int k) {
-    // TODO: Implement CUDA kernel
-    // int i = blockIdx.y * blockDim.y + threadIdx.y;
-    // int j = blockIdx.x * blockDim.x + threadIdx.x;
+__global__ void floyd_warshall_phase3_kernel(float4* d_matrix, int numVectors, int k) {
+    int blockX = blockIdx.x; 
+    int blockY = blockIdx.y; 
+
+    // Skip dependent blocks
+    if (blockX == k || blockY == k) return;
+
+    int threadX = threadIdx.x; 
+    int threadY = threadIdx.y;
+
+    // Shared Memory for Pivot and Self Block
+    __shared__ float row[32][33]; // Row Block (k, blockY)
+    __shared__ float column[32][33]; // Col Block (blockX, k)
+
+    // Row Block: Row k, Col blockY
+    float4 rowVector = d_matrix[(k * 32 + threadY) * numVectors + (blockY * 8 + threadX)];
+    
+    // Col Block: Row blockX, Col k
+    float4 colVector = d_matrix[(blockX * 32 + threadY) * numVectors + (k * 8 + threadX)];
+
+    // Target Block: Row blockX, Col blockY
+    float4 targetVector = d_matrix[(blockX * 32 + threadY) * numVectors + (blockY * 8 + threadX)];
+
+    // Populate Shared Memory
+    row[threadY][threadX*4+0] = rowVector.x;
+    row[threadY][threadX*4+1] = rowVector.y;
+    row[threadY][threadX*4+2] = rowVector.z;
+    row[threadY][threadX*4+3] = rowVector.w;
+
+    column[threadY][threadX*4+0] = colVector.x;
+    column[threadY][threadX*4+1] = colVector.y;
+    column[threadY][threadX*4+2] = colVector.z;
+    column[threadY][threadX*4+3] = colVector.w;
+
+    __syncthreads();
+
+    // Compute loop
+    #pragma unroll
+    for (int w = 0; w < 32; ++w) {
+        // Read from Shared
+        float columnValue = column[threadY][w];
+        float rowValue0 = row[w][threadX*4+0];
+        float rowValue1 = row[w][threadX*4+1];
+        float rowValue2 = row[w][threadX*4+2];
+        float rowValue3 = row[w][threadX*4+3];
+
+        // Update Values
+        targetVector.x = fminf(targetVector.x, columnValue + rowValue0);
+        targetVector.y = fminf(targetVector.y, columnValue + rowValue1);
+        targetVector.z = fminf(targetVector.z, columnValue + rowValue2);
+        targetVector.w = fminf(targetVector.w, columnValue + rowValue3);
+    }
+
+    // Write back to Global
+    d_matrix[(blockX * 32 + threadY) * numVectors + (blockY * 8 + threadX)] = targetVector;
 }
 
 __global__ void floyd_warshall_naive_kernel(float* d_matrix, int n, int k) {
