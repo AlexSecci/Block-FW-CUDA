@@ -93,8 +93,8 @@ int main(int argc, char** argv) {
     }
     
     cout << "Graph parsed correctly" << endl;
-    writeGraphToFile(matrixCPU, string(argv[3]) + "\\InputCPU.txt");
-    writeGraphToFile(matrixCPU, string(argv[3]) + "\\InputGPU.txt");
+    //writeGraphToFile(matrixCPU, string(argv[3]) + "\\InputCPU.txt");
+    //writeGraphToFile(matrixCPU, string(argv[3]) + "\\InputGPU.txt");
     if (mode == 0 ||  mode == 2) {
         // TODO: Run CPU version
         auto t1 = chrono::high_resolution_clock::now();
@@ -118,8 +118,8 @@ int main(int argc, char** argv) {
         verifyResults(matrixCPU, matrixGPU);
     }
 
-    writeGraphToFile(matrixCPU, string(argv[3]) + "\\OutputCPU.txt");
-    writeGraphToFile(matrixGPU, string(argv[3]) + "\\OutputGPU.txt");
+    //writeGraphToFile(matrixCPU, string(argv[3]) + "\\OutputCPU.txt");
+    //writeGraphToFile(matrixGPU, string(argv[3]) + "\\OutputGPU.txt");
     // TODO: Output data
 
     return 0;
